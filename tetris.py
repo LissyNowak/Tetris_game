@@ -1,5 +1,6 @@
 import pygame
 import random
+from copy import deepcopy
 
 pygame.init()
 
@@ -19,19 +20,24 @@ grid_squares = [pygame.Rect(i*square,j*square,square,square) for i in range(squa
 
 #tetrominos
 tetrominos_positions = [
-    [(-2, 0), (-1, 0), (0, 0), (1, 0)], #I
-    [(1, 0), (-1, 1), (0, 1), (1, 1)], #L
-    [(-1, 0), (0, 0), (-1, 1), (0, 1)], #O
-    [(0, 0), (1, 0), (-1, 1), (0, 1)], #S
-    [(0, 0), (-1, 1), (0, 1), (1, 1)], #T
+    [(-1, 0), (0, 0), (1, 0), (2, 0)],  #I
+    [(1, 0), (-1, 1), (0, 1), (1, 1)],  #L1
+    [(1, 2), (-1, 1), (0, 1), (1, 1)],  #L2
+    [(0, 0), (1, 0), (0, 1), (1, 1)],   #O
+    [(0, 0), (1, 0), (-1, 1), (0, 1)],  #S1
+    [(0, 0), (-1, 0), (1, 1), (0, 1)],  #S2
+    [(0, 0), (-1, 1), (0, 1), (1, 1)],  #T
+
 ]
 
 tetromino_colors = {
     0: (255, 0, 0),    #red for I
-    1: (0, 255, 0),    #green for L
-    2: (0, 0, 255),    #blue for O
-    3: (255, 255, 0),  #yellow for S
-    4: (255, 0, 255),  #purple for T
+    1: (0, 255, 0),    #green for L1
+    2: (0, 0, 255),    #blue for L2
+    3: (255, 255, 0),  #yellow for O
+    4: (255, 0, 255),  #pink for S2
+    5: (148, 71, 230),  #purple for S2
+    6: (52, 235, 235),  #turqouise for T
 }
 
 #list of the landed tetrominos
@@ -74,12 +80,16 @@ def collide_landed():
     returns bool about whether the current tetromino collides with another tetromino that already landed
     (rects relate to the points in the upper left corner, so we have to check whether the tetromino will touch the ground in the next step)
     '''
+    global running #important because the variables in functions are only local if we don't set them global
     for rect in moving_tetromino:
         collision_rect = rect.copy()  #create copy of the rect
         collision_rect.y += square  #move rect one square down
-        if collision_rect.collidelist(landed_tetrominos) != -1:
+        if collision_rect.collidelist(landed_tetrominos) != -1 and not rect.y == 0:
             #collidelist returns index of the first colliding figure and -1 if theres no collision
             return True  #no collision with tetromino that has already landed in the next square
+        elif collision_rect.collidelist(landed_tetrominos) != -1 and rect.y == 0:
+            running = False
+        
     return False  #collision with tetromino that has already landed in the next square
 
 def collide_ground():
@@ -95,9 +105,27 @@ def rotate_tetromino():
     '''
     Rotates the current tetromino clockwise
     '''
+    rotated_positions = tetrominos_positions[tets].copy() #copy the rect positions of the current tetronimo
+    for i in range(len(rotated_positions)):  
+            x,y = rotated_positions[i]      #read x,y-positions from the rects of the current tetronimo
+            rotated_positions[i] = y,-x     #rotate x,y-positons
+    if not collide_left() and not collide_right():          #only rotate when not collide with the right or left border
+        tetrominos_positions[tets] = rotated_positions 
 
-    
-    
+def check_full_rows():
+    '''
+    checks if any rows are completely filled with tetrominos and removes them from the landed tetrominos list
+    '''
+    global tets_per_row, landed_tetrominos
+    for rect in landed_tetrominos:
+        if rect.y==570:
+            tets_per_row+=1
+        if tets_per_row==10:
+            print('voll')
+    if tets_per_row==10:
+        for rects in landed_tetrominos:
+            if rects.y==570:
+                landed_tetrominos.remove(rects)
 
 
 
@@ -105,9 +133,10 @@ def rotate_tetromino():
 running = True
 screen = pygame.display.set_mode((screen_x,screen_y))
 clock = pygame.time.Clock()
-tets=random.randint(0,4)                                          #list of rects of current tetromino (index from the move() function for the sublist including the positions of the rects for one tetromino)
+tets=random.randint(0,6)                                          #list of rects of current tetromino (index from the move() function for the sublist including the positions of the rects for one tetromino)
 rects=0
 stop_time=0
+tets_per_row=0
 
 while running:
     for event in pygame.event.get():
@@ -143,15 +172,20 @@ while running:
         landed_tetrominos.extend(moving_tetromino)
         for i in range(4):
             colours_landed.extend([tetromino_colors[tets]])
-        tets=random.randint(0,4)
+        tets=random.randint(0,6)
         y_offset,x_offset=0,0 #returning to start position for the new tetromino    
         x_offset=0
         moving_tetromino=[] #only one moving tetromino 
 
     #drawing the landed tetrominos
-    [pygame.draw.rect(screen,colours_landed[i],landed_tetrominos[i]) for i in range(len(landed_tetrominos))]
+    [pygame.draw.rect(screen,colours_landed[i],landed_tetrominos[i]) for i in range(len(landed_tetrominos))] 
 
-    print()
+
+    check_full_rows()
+    
+    tets_per_row = 0
+
+
 
     draw_grid()
 
